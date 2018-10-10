@@ -1,0 +1,775 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: Pattern
+file_extensions:
+  - pattern
+first_line_match: "Pattern File"
+
+scope: source.pattern
+variables:
+  number_number: '((\d+)(\.?)(\d*))'
+  number_hex: '(((?:0[xX]+)|[$])([a-fA-F0-9]+))'
+  string: '("[^"]*")'
+
+  bool_op_equality: '(?:==|Is)'
+  bool_op_logical_and: '(?:&&|And)'
+  bool_op_logical_or: '(?:\|\||Or)'
+  bool_op_logical_not: '(?:!|Not)'
+  bool_op_xor: '(?:\^|Xor)'
+  bool_op: '(?:({{bool_op_equality}}|{{bool_op_logical_and}}|{{bool_op_logical_not}}|{{bool_op_logical_or}}|{{bool_op_xor}}))'
+
+  assignment_op_direct: '(?:=|From)'
+  assignment_op_and: '(?:&)'
+  assignment_op_or: '(?:\|)'
+  assignment_op: '(?:({{assignment_op_and}}|{{assignment_op_or}}))'
+
+  math_op_addition: '(?:[+])'
+  math_op_subtraction: '(?:[-])' 
+  math_op_multiplication: '(?:[*])'
+  math_op_division: '(?:[/])'
+  math_op_remainder: '(?:[%])'
+  math_op_power: '(?:^)'
+  math_op_root: '(?:[\#])'
+  math_op: '(?:{{math_op_addition}}|{{math_op_division}}|{{math_op_multiplication}}|{{math_op_power}}|{{math_op_remainder}}|{{math_op_root}}|{{math_op_subtraction}})'
+
+  string_op_concatenation: '(?:++)'
+  string_op_remove_all: '(?:--)'
+  string_op_remove_first: '(?:-<)'
+  string_op_remove_last: '(?:->)'
+  string_op_replace_all: '(?:\!\!)'
+  string_op_replace_first: '(?:\!<)'
+  string_op_replace_last: '(?:\!>)'
+  string_op_first_index_of: '(?:<<)'
+  string_op_last_index_of: '(?:>>)'
+  string_op_all_index_of: '(?:><)'
+  string_op: '(?:{{string_op_all_index_of}}|{{string_op_concatenation}}|{{string_op_first_index_of}}|{{string_op_last_index_of}}|{{string_op_remove_all}}|{{string_op_remove_first}}|{{string_op_remove_last}}|{{string_op_replace_all}}|{{string_op_replace_first}}|{{string_op_replace_last}})'
+
+  operations: '(?:{{bool_op}}|{{assignment_op}}|{{math_op}}|{{string_op}})'
+
+  unicode_char: '(?:\\u\h{4}|\\U\h{8})'
+  escaped_char: '(?:\\[abfnrtv"''\\]|{{unicode_char}}|\\x[0-9a-fA-F]{1,4}|\\[0-9]{1,3})'
+
+  visibility: '\b(?:Public|Private|Visible)\b'
+  
+  reserved_base_type: '(?:Type|Reference|Node|Pair|Array|Bag|Flag|Number|Guid|Logical|Character|String|Date|Place|Culture|Enumeration|Enum Node)'
+  reserved_patterned_type: '(?:Domain|Singleton|Facade|Model|View|Controller|Bridge|Adapter|DataStore|DataProvider|DataAdapter|DataBridge|ForeignService|Service|Application)'
+  base_type: '(?:{{reserved_base_type}}|{{reserved_patterned_type}})'
+
+  reserved_decisions: '(?:If|Else|Else[ ]If|End[ ]If|Compare|With|End[ ]With|To|When|End[ ]Compare|Choice|Other|End[ ]Choice)'
+  reserved_errors: '(?:Error|Error Scope|Handle|End Handle|Last Error|Throw|Rethrow)'
+  reserved_loops: '(?:Each|Within|End Each|Exit|Next|For|Start|End At|Skip|End For|Do|Until|While|End While)'
+  reserved: '(?:{{reserved_constructs}}|{{reserved_decisions}}|{{reserved_errors}}|{{reserved_loops}})'
+
+  reserved_objects: '(?:Object|Delegate|Application[ ]Scope|Application|Enumeration|Test[ ]Set|Test|Singleton|Model|Controller|Facade|Bridge|Adapter|Data[ ]Store|Data[ ]Provider|Data[ ]Adapter|Data[ ]Bridge|Remote|Service)'
+
+  start_char: '(?:{{unicode_char}}|[_\p{L}])'
+  other_char: '(?:{{unicode_char}}|[_0=9\p{L}])'
+  name_normal: '{{start_char}}{{other_char}}*\b'
+  cap_name: '(\p{Lu}{{other_char}})'
+  name: '(?:@{{reserved}}@{{base_type}}|@var|@?{{name_normal}})'
+  named_type: '(?{{name_normal}}(?:(?:\.{{name_normal}}))*)'
+
+  type_separator: '>'
+  line_terminator: '\.'
+
+contexts:
+  prototype:
+    - include: comments
+    - name: meta.prototype.pattern
+      match: '^(#)(\s+)'
+      captures:
+        1: keyword.other.preprocessor.pattern
+        2: punctuation.definition.preprocessor.pattern
+      push: preprocessor_option
+
+  comments:
+    - name: meta.comments.documentation.pattern
+      match: '(?:^|[[:blank:]])(\/\/\/)'
+      captures:
+        1: comment.block.documentation.pattern punctuation.definition.comment.documentation.pattern
+      push: documentation  
+    - name: meta.comments.pattern
+      match: '(?:^|[[:blank:]])(\/\/)'
+      scope: punctuation.definition.comment.pattern
+      push:
+        - meta_scope: comment.line.double-slash.pattern
+        - name: meta.comments.eol.pattern
+          match: '$'
+          pop: true
+        - include: comments_in
+
+  comments_in:
+    - name: meta.comments.description.pattern
+      match: '\b(?:((?:todo|TODO|hack|HACK|bug|BUG)\b[:]?.*))'
+      captures:
+        1: comment.line.todo.pattern
+      scope: comment.line.todo.pattern
+    - name: meta.comments.link.pattern
+      match: '\b(?:(?:http[s]?|HTTP[S]?)?:\/\/\S*)\b'
+      scope: markup.underline.link.pattern
+
+  preprocessor_option:
+    - meta_scope: meta.preprocessor.pattern
+    - name: meta.preprocessor.define.pattern
+      match: '\b(define|undef)[[:blank:]]+({{name_normal}})\b'
+      captures:
+        1: keyword.control.preprocessor.pattern
+        2: entity.name.constant.pattern
+    - name: meta.preprocessor.else-if.pattern
+      match: '\b(el)?if\b'
+      scope: keyword.control.preprocessor.pattern
+      push:
+        - match: '\(|\)'
+          scope: punctuation.section.parens
+        - match: '&&|\|\||!'
+          scope: keyword.operator.logical.pattern
+        - match: '\b(true|false)\b'
+          scope: const.language.pattern
+        - match: '({{name_normal}})'
+          scope: constant.other.flag.pattern
+        - include: option_done
+    - name: meta.preprocessor.else-endif.pattern
+      match: '\b(else$|endif)\b'
+      scope: keyword.control.preprocessor.pattern
+      push: option_done
+    - name: meta.preprocessor.error-warning.pattern
+      match: '\b(error|warning)\b[[:blank:]]*(.*)'
+      captures:
+        1: keyword.other.preprocessor.pattern
+        2: string.unquoted.pattern
+    - name: meta.preprocess.line.default-hidden.pattern
+      match: '\b(line)[[:blank:]]+(default|hidden)\b'
+      captures:
+        1: keyword.other.preproccesor.pattern
+        2: keyword.other.preproccesor.pattern
+      push: option_done
+    - name: meta.preprocess.line.pattern
+      match: '\b(line)[[:blank:]]+(\d*)[[:blank:]]+((").*("))?\b'
+      captures:
+        1: keyword.other.preprocessor.pattern
+        2: constant.numeric.pattern
+        3: string.quoted.double.pattern
+        4: punctuation.definition.string.begin.pattern
+        5: punctuation.definition.string.end.pattern
+      push: option_done
+    - name: meta.preprocessor.pragma.checksum
+      match: '\b(pragma)[[:blank:]]+(checksum)[[:blank:]]+'
+      captures:
+        1: keyword.other.preprocces.pattern
+        2: keyword.other.preprocces.pattern
+      push:
+        - meta_scope: string.quoted.double.hash.pattern
+        - match: '"{'
+          scope: constant.numeric.pattern
+        - match: '}"'
+          scope: punctuation.definition.string.end.pattern
+          pop: true
+        - match: '\.'
+          scope: invalid.illegal.pattern
+          pop: true
+    - match: '"'
+      scope: punctuation.definition.string.begin.pattern
+      push: string
+    - include: option_done
+
+    - name: meta.preprocessor.pragma.warning.pattern
+      match: '(pragma)[[:blank:]]+(warning)\b'
+      captures:
+        1: keyword.other.preprocces.pattern
+        2: keyword.other.preprocces.pattern
+      push:
+        - match: '\b(disable|restore)\b(?:[[:blank:]]+([\p{L}_-]+))'
+          captures:
+            1: keyword.other.preprocces.pattern
+            2: string.unquoted.warning.pattern
+        - include: comments
+        - match: '$'
+          pop: true
+
+  option_done:
+    - include: comments
+    - match: '$'
+      pop: true
+    - match: '\S'
+      scope: invalid.illegal.pattern
+
+  normal:
+    - name: meta.label.pattern
+      match: '{{name_normal}}'
+      scope: variable.other.pattern
+      pop: true
+
+  fqtype:
+    - name: meta.type.fully-qualified.pattern
+      match: '{{named_type}}'
+      scope: meta.path.pattern
+      pop: true
+
+  terminate_line:
+    - name: meta.line-terminator.pattern
+      match: '{{line_terminator}}'
+      scope: punctuation.line_terminator.pattern
+      pop: true
+
+  main:
+    - include: redefine_declaration
+    - include: needs_declaration
+    - include: app_scope_declaration
+
+  needs_declaration:
+    - name: meta.needs.declaration.pattern
+      match: '^(Needs)[ ](?={{named_type}})'
+      captures:
+        1: keyword.control.import.pattern
+        2: meta.path.pattern
+      push: [terminate_line, fqtype]
+      pop: true
+
+  redefine_declaration:
+    - name: meta.redefine.declaration
+      match: '^(Redefine)[ ](?={{named_type}})'
+      captures:
+        1: keyword.control.import.pattern
+        2: meta.path.pattern
+      push: fqtype
+    - name: meta.redefine.as.declaration
+      match: '[ ](As)[ ](?={{name_normal}})'
+      captures:
+        1: keyword.control.import.pattern
+        2: variable.other.namespace.pattern
+      set: normal
+      push: terminate_line
+      pop: true
+      
+  app_scope_declaration:
+    - meta_scope: meta.application_scope.begin.pattern
+    - name: meta.application_scope.begin.pattern
+      match: '^(Application[ ]Scope)[ ]'
+      scope: storage.type.namespace.pattern
+      set:
+        - name: meta.application_scope.name.pattern
+          match: '(?={{named_type}})' 
+          push: [terminate_line, application_declaration]
+          set:
+            - include: application_declaration
+            - name: meta.application.scope.end.pattern
+              match: '^(End[ ]Application[ ]Scope)'
+              scope: storage.type.namespace.pattern
+              set:
+                - meta_scope: meta.namespace.pattern meta.block.pattern
+                  push: terminate_line
+                  pop: true
+    - match: (?=\S)
+      pop: true
+
+  application_declaration:
+    - name: meta.application_scope.name.pattern
+      match: '\b(?={{name_normal}})\b(?={{line_terminator}})'
+      captures:
+        1: section.block.begin.pattern
+        2: punctuation.line_terminator.pattern
+      push: [terminate_line, fqtype]
+      set:
+        - meta_scope: meta.application_scope.body.pattern
+        - name: meta.application_scope.end.pattern
+          match: '^[ ]{2}(End[ ]Application)({{line_terminator}})'
+          captures:
+            1: storage.type.class.pattern
+            2: punctuation.line_terminator.pattern
+          set:
+            - meta_scope: meta.application_scope.end.pattern
+              pop: true
+        - include: enum_declaration
+        - include: class_declaration
+        - include: delegate_declaration
+        - include: test_set_declaration
+        - match: '(?=\S)'
+          pop: true
+
+  enum_declaration:
+    - meta_scope: meta.enum.pattern
+    - name: meta.enumeration.begin.pattern
+      match: '^[ ]{2}(?:(Public)[ ])?(Enumeration)'
+      captures:
+        1: storage.modifier.access.pattern
+        2: storage.type.class.pattern
+      push:      
+        - name: meta.enumeration.name.pattern
+          match: '[ ]{{name_normal}}'
+          scope: entity.name.class.pattern
+          set:
+          - name: meta.enumeration.domain.pattern
+            match: '[ ]In[ ]Domain'
+            scope: storage.type.class.pattern
+            set:
+            - name: meta.enumeration.domain.name.pattern
+              match: '[ ]({{typed_name}})(?={{line_terminator}})'
+              scope: entity.name.namespace.pattern
+              push: [enum_value, line_terminator]
+              set:
+              - meta_scope: meta.enum.body.pattern meta.block.pattern
+              - name: meta.enumeration.end.pattern                
+                match: '^[ ]{2}(End[ ]Enumeration)({{line_terminator}})'
+                captures:
+                  1: storage.type.class.pattern
+                  2: punctuation.line_terminator.pattern
+                pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  enum_value:
+    - name: meta.enumeration.value.pattern
+      match: '^[ ]{4}(Enum[ ]Value)[ ]({{name_normal}})[ ](\=)'
+      captures: 
+        1: constant.other.enum.pattern
+        2: variable.other.member.pattern
+        3: keyword.operator.assignment.pattern
+      push: [terminate_line, constant] 
+      pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  delegate_declaration:
+    - meta_scope: meta.delegate.pattern
+    - name: meta.delegate.pattern
+      match: '^[ ]{2}\b(Delegate)\b'
+      scope: storage.type.delegate.pattern
+      push: delegate_name
+      pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  delegate_name:
+    - name: meta.delegate.name.pattern
+      match: '\b{{name_normal}}\b'
+      scope: meta.delegate.pattern variable.other.member.delegate.pattern
+      set:
+      - name: meta.delegate.of-type.pattern
+        match: '\bOf[ ]Type\b'
+        scope: storage.type.delegate.pattern
+        push: [terminate_line, fqtype]
+        pop: true
+    - match: '(?=\S)' 
+      pop: true
+
+  delegate_params:
+    - meta_content_scope: meta.delegate.parameters.pattern
+    - name: meta.delegate.parameters.begin.pattern
+      match: '^[ ]{2}(Parameters)(?={{line_terminator}})' # some text - means there's another parameter
+      scope: storage.type.pattern 
+      push: [delegate_param, terminate_line]
+      set: 
+      - name: meta.delegate.parameters.end.pattern
+        match: '^[ ]{2}(End Parameters)(?={{line_terminator}})' # end of parameters
+        scope: storage.type.pattern
+        push: terminate_line
+        pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  delegate_param:
+    - meta_content_scope: meta.delegate.parameters.body.pattern
+    - meta_scope: meta.delegate.parameters.pattern
+    - name: meta.delegate.parameter.pattern
+      match: '^[ ]{4}Parameter[ ]'
+      scope: storage.type.pattern
+      set:
+      - name: meta.delegate.parameter.name.pattern
+        match: '\b(?={{name_normal}})\b' # name of parameter
+        scope: variable.parameter.pattern
+        set:
+        - name: meta.delegate.parameter.of_type.pattern
+          match: '[ ]Of[ ]Type[ ]'
+          scope: storage.type.pattern
+          push: [terminate_line, fqtype]
+          pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  class_declaration:
+    - name: meta.class.type.pattern
+      match: '^[ ]{2}(?:\b(Public)[ ]\b)?\b({{reserved_objects}}|{{named_type}}))'
+      captures:
+        1: storage.modifier.access.pattern
+        2: storage.type.class.pattern
+      set:
+      - name: meta.class.type.name.pattern
+        match: '[ ]({{name_normal}})'
+        scope: entity.name.class.pattern
+        set:
+        - name: meta.class.type.domain.pattern
+          match: '[ ](In[ ]Domain)[ ]({{name_normal}})\b'
+          captures:
+            1: storage.type.class.pattern
+            2: entity.name.class.pattern
+          push: [class_body, terminate_line]
+          pop: true
+    - match: (?=\S)
+      pop: true
+
+  class_body:
+    - name: meta.class.body.begin.pattern
+      match: '^[ ]{2}(Body)({{line_terminator}})'
+      captures:
+        1: constant.other.pattern
+        2: punctuation.section.block.begin.pattern
+      push:
+      - meta_scope: meta.block.pattern
+      - include: field_signature
+      - include: property_signature
+      - include: method_signature
+      - include: event_signature
+      - name: meta.class.body.end.pattern
+        match: '^[ ]{2}End[ ]Body'
+        scope: storage.type.class.pattern
+        push: terminate_line
+        pop: true
+    - match: '(?=\S*)'
+      pop: true
+
+  event_signature:
+    - name: meta.event.name.pattern
+      match: '^[ ]{4}(Event)[ ]({{name_normal}})'
+      captures:
+        1: storage.type.pattern
+        2: variable.other.pattern
+      set:
+      - name: meta.event.type.pattern
+        match: '[ ](Publishes)[ ](?={{named_type}})'
+        captures:
+          1: storage.type.pattern
+          2: variable.other.member.delegate.pattern
+        push: [terminate_line, fqtype]
+        pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  field_signature:
+    - match: '^[ ]{4}'
+      set:
+      - name: meta.field.mutability.pattern
+        match: '\bConstant|Mutable\b'
+        scope: storage.type.pattern
+        set:
+        - name: meta.field.name.pattern
+          match: '\b_{{name_normal}}\b' # name of field
+          scope: variable.parameter.pattern
+          set:
+          - name: meta.field.of-type.pattern
+            match: '\bOf[ ]Type\b'
+            scope: storage.type.pattern
+            push: fqtype
+            set:
+            - include: terminate_line
+            - name: meta.field.default.pattern
+              match: '\bDefault\b' # default parameter value follows
+              scope: storage.type.pattern
+              push: [terminate_line, expression]
+              pop: true
+      - match: '(?=\S)'
+        pop: true
+
+  property_signature:
+    - match: '^[ ]{4}'
+      set:
+      - name: meta.property.accessibility.pattern
+        match: '\bPublic\b?'
+        scope: storage.type.pattern
+        push: property_declaration
+        pop: true
+  
+  property_declaration:
+    - name: meta.property.pattern
+      match: '\bProperty\b'
+      scope: storage.type.pattern
+      set:
+      - name: meta.property.name.pattern
+        match: '\b{{name_normal}}\b'
+        scope: variable.other.pattern
+        set:
+        - name: meta.property.to.pattern
+          match: '\bTo\b'
+          scope:  storage.type.pattern
+          push: [terminate_line, expression]
+          pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  constructor_signature:
+    - meta_scope: meta.method.pattern
+    - name: meta.constructor.begin.pattern
+      match: '^[ ]{4}(?:(?:(?:(?:({{reserved_visibility}}))?)[ ](Constructor)({{line_terminator}})'
+      captures:
+        1: storage.modifier.pattern
+        2: entity.name.function.constructor.pattern
+        3: punctuation.line_terminator.pattern
+      push: [method_body, constructor_params]
+      set:
+      - name: meta.constructor.end.pattern
+        match: '^[ ]{4}(End[ ]Constructor)(?={{line_terminator}})'
+        scope: constant.other.pattern
+        push: line_terminator
+        pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  constructor_params:
+    - meta_content_scope: meta.instance.pattern meta.group.pattern
+    - meta_scope: meta.constructor.parameters.begin
+    - include: parameters_list
+
+  parameters_list:
+    - name: meta.parameters.begin.pattern
+      match: '^[ ]{4}(Parameters){={line_terminator}}' # some text - means there's another parameter
+      scope: storage.type.pattern
+      push: line_terminator
+      set:
+        - meta: meta.method.constructor.pattern
+        - push: parameter
+        - match: '^[ ]{4}(End Parameters)({{line_terminator}})' # end of parameters
+          captures:
+            1: storage.type.pattern
+            2: meta.method.parameters.pattern punctuation.section.parameters.end.pattern
+          push: method_body
+          pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  parameter:
+    - match: '^[ ]{6}Parameter[ ]'
+      scope: storage.type.pattern
+      set:
+      - match: '{{name_normal}}' # name of parameter
+        scope: variable.parameter.pattern
+        set:
+        - match: '[ ]Of[ ]Type[ ]'
+          scope: storage.type.pattern
+          push: normal
+          set:
+          - include: terminate_line
+          - match: '[ ]Default[ ]' # default parameter value follows
+            scope: storage.type.pattern
+            push: [terminate_line, expression]
+            pop: true          
+    - match: '(?=\S)'
+      pop: true
+
+  method_signature:
+    - meta_scope: meta.method.pattern
+    - name: meta.method.begin.pattern
+      match: '^[ ]{4}(Public[ ])?(?:({{reserved_visibility}})[ ])?(Method)'
+      captures:
+        1: storage.modifier.access.pattern
+        2: storage.modifier.pattern
+        3: storage.modifier.pattern
+      push: [parameters, method_declaration]
+      set:
+      - name: meta.method.end.pattern meta.method.body.end.pattern
+        match: '^[ ]{4}(End[ ]Method)(?={{line_terminator}})'
+        set: constant.other.pattern
+        push: terminate_line        
+        pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  method_declaration:
+    - meta_scope: meta.method.pattern
+    - name: meta.method.declaration.name.pattern
+      match: '\b{{name_normal}}\b'
+      scope: variable.other.pattern
+      set:
+      - name: meta.method.declaration.returns.pattern
+        match: '\bReturns\b'
+        scope:  storage.type.pattern
+        set:
+        - name: meta.method.declaration.returns.type.pattern
+          match: (?={{name_normal}})
+        - push: [terminate_line, fqtype]
+          set:
+          - meta_content_scope: meta.method.parameters.pattern
+            push: [method_body_transition, method_parameters]
+          pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  method_parameters:
+    - meta_content_scope: meta.method.parameters.pattern
+    - meta_scope: meta.method.parameters.begin.pattern
+    - include: parameters_list
+      pop: true
+
+  method_body:
+    - meta_scope: meta.method.body.pattern
+    - match: '^[ ]{6}(Method[ ]Body)(?={{line_terminator}})'
+      scope: storage.type.function.pattern
+      push: terminate_line
+      set:
+        - meta_scope: meta.method.body.pattern meta.block.pattern
+        - match: '^[ ]{6}(End[ ]Method)(?={{line_terminator}})' # End tag for methods
+          scope: constant.other.pattern
+          push: [code_block_in, line_terminator]
+          pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  code_block_in:
+    - name: meta.code.leadin.pattern
+      match: '(?=^[ ]{6}[ ]*\S)' # If there's any text, it is a line of code.
+      push: line_of_code
+      pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  line_of_code:
+    # Language Keywords
+    - match: '^[ ]{6}[ ]*\b(If)[ ]' # Start Conditional
+      captures:
+        1: keyword.control.condition.if.pattern
+      push: [end_if, else_block, if_block, if_condition]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Choice)[ ]' # Choice Conditional
+      captures:
+        1: keyword.control.flow.switch.pattern
+      push: [switch_block, if_condition]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Compare)[ ]'
+      captures:
+        1: keyword.control.flow.switch.pattern
+      push: [compare_block, line_of_code, compare_to, line_of_code, compare_with, line_of_code, compare_condition]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(For)[ ]'
+      captures:
+        1: keyword.control.loop.for.pattern
+      push: [for_block, for_variable, for_to, for_variable, for_from, for_variable]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Each)[ ]'
+      captures:
+        1: keyword.control.loop.foreach.pattern
+      push: [each_block, line_of_code, each_in, each_variable]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Error Scope)\b'
+      captures:
+        1: keyword.control.trycatch.try.pattern
+      push: [finally_block, catch_expr, try_block]
+      pop: true
+#    - match: '^[ ]{6}[ ]*\b(Dispose[ ]After)[ ]'
+#      captures:
+#        1: keyword.control.using.pattern
+#      set: [using_block, line_of_code]
+    - match: '^[ ]{6}[ ]*\bLoop[ ]Until\b'
+      scope: keyword.control.loop.do.pattern
+      push: [while_block, while_condition]
+      pop: true
+    - while: '^[ ]{6}[ ]*\bLoop While\b'
+      scope: keyword.control.loop.while.pattern
+      push: [while_block, while_condition]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Else|When|Otherwise|Handle|Afterwards)\b'
+      scope: keyword.control.pattern invalid.illegal.unexpected.keyword.pattern
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Return)\b'
+      scope: keyword.control.flow.return.pattern
+      push: [terminate_line, expression]
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Go Next|Exit)\b'
+      captures: 
+        1: keyword.control.flow.break.pattern
+      pop: true
+    - match: '^[ ]{6}[ ]*\b(Throw|Rethrow)\b'
+      scope: keyword.control.trycatch.throw.pattern
+      push: normal
+      pop: true
+    - match: '^[ ]{6}[ ]*(Constant|Mutable)[ ](?={{name_normal}})[ ]'
+      scope: storage.type.variable.pattern
+      push: normal
+      set:
+      - match: '(Of)[ ](?={{named_type}})'
+        scope: variable.other.pattern
+        push: fqtype
+        set:
+        - match: '[ ](?=)[ ]'
+          scope: keyword.operator.assignment.pattern
+          push: [terminate_line, expression]
+          pop: true
+        - match: (?=.)
+          pop: true
+    - match: '^[ ]{6}[ ]*(?=\S)'
+      push: [terminate_line, expression]
+      pop: true
+
+  expression:
+    - include: literals
+    - name: meta.expression.value.pattern
+      match: '\b(Value)\b'
+      scope: variable.language.pattern
+      pop: true
+    - name: meta.keywords.me_base.pattern
+      match: '\b(Me|Base)\b'
+      scope: variable.language.pattern
+      push: typed_name
+      pop: true
+    - name: meta.expressions.named_type.pattern
+      match: '[ ]({{named_type}})[ ]'
+      scope: storage.type.pattern
+      pop: true
+    - name: meta.keywords.await.pattern
+      match: '\b(Await)\b'
+      scope: keyword.control.other.pattern
+      push: method_call
+      pop: true
+    - name: meta.reflection.type_of.pattern
+      match: '\b(Type[ ]Of)\b'
+      push: expression
+      pop: true
+    - name: meta.keywords.casting.pattern
+      match: '\b(As|Is)\b'
+      scope: keyword.other.pattern 
+      set:
+      - meta_content_scope: meta.group.pattern
+        push: typed_name
+        pop: true
+    - name: meta.expression.begin.pattern
+      match: '\('
+      scope: punctuation.section.group.begin.pattern
+      push: expression
+      pop: true
+    - name: meta.expression.separator.pattern
+      match: ','
+      push: expression
+      pop: true
+    - name: meta.expression.end.pattern
+      match: '\)'
+      pop: true
+    - name: meta.expression.operator.pattern
+      match: '[ ]{{operator}}[ ]'
+      push: expression
+      pop: true
+
+  method_call:
+    - name: meta.function.direct.pattern
+      match: '({{named_type}})[ ]?(?=\()'
+      captures:
+        1: variable.function.pattern
+        2: meta.brackets.pattern punctuation.section.brackets.begin.pattern
+      set:
+      - meta_content_scope: meta.brackets.pattern    
+      - match: '(\()'
+        push: expression
+        pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  literals:
+    - match: '\b(True|False|Null)'
+      scope: constant.language.pattern
+    - match: '''\'''
+      scope: invalid.illegal.lone-escape.pattern
+    - match: '{{number_hex}}'
+      scope: constant.numeric.integer.hexadecimal.pattern
+    - match: '{{number_number}}'
+      scope: constant.numeric.pattern
+    - match: '"'
+      scope: punctuation.definition.string.begin.pattern
+      push: string
+

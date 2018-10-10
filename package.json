@@ -1,0 +1,26 @@
+{
+    "name": "pattern-syntax",
+    "displayName": "pattern-syntax",
+    "description": "Syntax highlighting for the Pattern programming language.",
+    "version": "0.0.1",
+    "publisher": "gateway-programming-school-inc",
+    "engines": {
+        "vscode": "^1.28.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "pattern",
+            "aliases": ["Pattern", "pattern"],
+            "extensions": [".pattern",".pat"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "pattern",
+            "scopeName": "source.pattern",
+            "path": "./syntaxes/pattern.tmLanguage.json"
+        }]
+    }
+}
