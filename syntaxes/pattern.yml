@@ -7,6 +7,7 @@ file_extensions:
 first_line_match: "Pattern File"
 
 scope: source.pattern
+
 variables:
   number_number: '((\d+)(\.?)(\d*))'
   number_hex: '(((?:0[xX]+)|[$])([a-fA-F0-9]+))'
@@ -19,7 +20,7 @@ variables:
   bool_op_xor: '(?:\^|Xor)'
   bool_op: '(?:({{bool_op_equality}}|{{bool_op_logical_and}}|{{bool_op_logical_not}}|{{bool_op_logical_or}}|{{bool_op_xor}}))'
 
-  assignment_op_direct: '(?:=|From)'
+  assignment_op_direct: '(?:=)'
   assignment_op_and: '(?:&)'
   assignment_op_or: '(?:\|)'
   assignment_op: '(?:({{assignment_op_and}}|{{assignment_op_or}}))'
@@ -196,7 +197,7 @@ contexts:
 
   normal:
     - name: meta.label.pattern
-      match: '{{name_normal}}'
+      match: '\b{{name_normal}}\b'
       scope: variable.other.pattern
       pop: true
 
@@ -238,8 +239,7 @@ contexts:
       captures:
         1: keyword.control.import.pattern
         2: variable.other.namespace.pattern
-      set: normal
-      push: terminate_line
+      push: [terminate_line, normal]
       pop: true
       
   app_scope_declaration:
@@ -545,7 +545,7 @@ contexts:
         set:
         - match: '[ ]Of[ ]Type[ ]'
           scope: storage.type.pattern
-          push: normal
+          push: fqtype
           set:
           - include: terminate_line
           - match: '[ ]Default[ ]' # default parameter value follows
@@ -606,18 +606,18 @@ contexts:
       push: terminate_line
       set:
         - meta_scope: meta.method.body.pattern meta.block.pattern
-        - match: '^[ ]{6}(End[ ]Method)(?={{line_terminator}})' # End tag for methods
+        - match: '^[ ]{6}(End[ ]Method)' # End tag for methods
           scope: constant.other.pattern
-          push: [code_block_in, line_terminator]
+          push: line_terminator
           pop: true
+        - include: code_line
     - match: '(?=\S)'
       pop: true
 
-  code_block_in:
+  code_line:
     - name: meta.code.leadin.pattern
       match: '(?=^[ ]{6}[ ]*\S)' # If there's any text, it is a line of code.
       push: line_of_code
-      pop: true
     - match: '(?=\S)'
       pop: true
 
@@ -626,7 +626,7 @@ contexts:
     - match: '^[ ]{6}[ ]*\b(If)[ ]' # Start Conditional
       captures:
         1: keyword.control.condition.if.pattern
-      push: [end_if, else_block, if_block, if_condition]
+      push: [else_block, if_block, if_condition]
       pop: true
     - match: '^[ ]{6}[ ]*\b(Choice)[ ]' # Choice Conditional
       captures:
@@ -641,29 +641,23 @@ contexts:
     - match: '^[ ]{6}[ ]*\b(For)[ ]'
       captures:
         1: keyword.control.loop.for.pattern
-      push: [for_block, for_variable, for_to, for_variable, for_from, for_variable]
+      push: [for_block, for_step, for_until, for_from, normal]
       pop: true
     - match: '^[ ]{6}[ ]*\b(Each)[ ]'
       captures:
         1: keyword.control.loop.foreach.pattern
-      push: [each_block, line_of_code, each_in, each_variable]
+      push: [each_block, each_in, normal]
       pop: true
     - match: '^[ ]{6}[ ]*\b(Error Scope)\b'
       captures:
-        1: keyword.control.trycatch.try.pattern
-      push: [finally_block, catch_expr, try_block]
+        1: keyword.control.error-scope-handle.error-scope.pattern
+      push: [always_block, handle_expr, error-scope_block]
       pop: true
-#    - match: '^[ ]{6}[ ]*\b(Dispose[ ]After)[ ]'
-#      captures:
-#        1: keyword.control.using.pattern
-#      set: [using_block, line_of_code]
-    - match: '^[ ]{6}[ ]*\bLoop[ ]Until\b'
-      scope: keyword.control.loop.do.pattern
-      push: [while_block, while_condition]
-      pop: true
-    - while: '^[ ]{6}[ ]*\bLoop While\b'
-      scope: keyword.control.loop.while.pattern
-      push: [while_block, while_condition]
+    - while: '^[ ]{6}[ ]*\b(Loop)[ ](While|Until)\b'
+      captures:
+        1: keyword.control.loop.while.pattern
+        2: keyword.control.loop.while.pattern
+      push: [loop_block, if_condition]
       pop: true
     - match: '^[ ]{6}[ ]*\b(Else|When|Otherwise|Handle|Afterwards)\b'
       scope: keyword.control.pattern invalid.illegal.unexpected.keyword.pattern
@@ -676,11 +670,18 @@ contexts:
       captures: 
         1: keyword.control.flow.break.pattern
       pop: true
-    - match: '^[ ]{6}[ ]*\b(Throw|Rethrow)\b'
-      scope: keyword.control.trycatch.throw.pattern
-      push: normal
+    - match: '^[ ]{6}[ ]*\b(Rethrow)\b'
+      scope: keyword.control.error-scope-handle.throw.pattern
       pop: true
-    - match: '^[ ]{6}[ ]*(Constant|Mutable)[ ](?={{name_normal}})[ ]'
+    - match: '^[ ]{6}[ ]*\b(Throw)[ ]'
+      scope: keyword.control.error-scope-handle.throw.pattern
+      push:
+      - match: '({{named_type}}Error)[ ]'
+        scope: storage.type.pattern
+        push: parameters_list
+        pop: true
+      pop: true
+    - match: '^[ ]{6}[ ]*(Constant|Mutable)[ ]'
       scope: storage.type.variable.pattern
       push: normal
       set:
@@ -748,15 +749,26 @@ contexts:
 
   method_call:
     - name: meta.function.direct.pattern
-      match: '({{named_type}})[ ]?(?=\()'
-      captures:
+      match: '({{named_type}})[ ](\()'
+      captures: 
         1: variable.function.pattern
-        2: meta.brackets.pattern punctuation.section.brackets.begin.pattern
+        2: punctuation.section.parens
       set:
       - meta_content_scope: meta.brackets.pattern    
-      - match: '(\()'
-        push: expression
+        push: method_call_parameters
         pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  method_call_parameters:
+    - name: meta.parameters.end.pattern
+      match: '\)'
+      scope: punctuation.section.parens.pattern
+      pop: true      
+    - name: meta.parameters.comma
+      match: ',[ ]'
+      scope: punctuation.section.parameters.comma.pattern
+    - push: expression
     - match: '(?=\S)'
       pop: true
 
@@ -772,4 +784,334 @@ contexts:
     - match: '"'
       scope: punctuation.definition.string.begin.pattern
       push: string
+
+  string:
+    - name: meta.string.begin.pattern
+      match: '"'
+      push: format_string
+      pop: true
+
+  format_string:
+    - meta_include_prototype: false 
+    - meta_scope: meta.string.interpolated.pattern string.quoted.double.pattern
+    - name: meta.string.end.pattern
+      match: '"'
+      scope: punctuation.definition.string.end.pattern
+      pop: true
+    - include: escaped
+    - name: meta.string.interpolated.begin.pattern
+      match: '\{'
+      scope: punctuation.section.interpolation.begin.pattern
+      push:
+        - meta_scope: meta.string.interpolated.pattern support.pattern
+        - clear_scopes: 2
+          pop: true
+        - include: string_interpolation
+    - name: meta.illegal.unclosed-string.pattern
+      match: '$\n?'
+      scope: invalid.illegal.unclosed-string.pattern
+      pop: true
+
+  string_placeholders:
+    - include: string_placeholder_escape
+    - name: meta.illegal.unclosed-string-placeholder.pattern
+      match: '(\{)(.+)(\")'
+      scope: constant.other.placeholder.pattern
+      captures:
+        1: punctuation.definition.placeholder.begin.pattern
+        2: constant.language.pattern
+        3: invalid.illegal.unclosed-string-placeholder.pattern
+      pop: true
+    - name: meta.string.interpolated.begin.pattern
+      match: '(\{)(?=.+)'
+      captures:
+        1: punctuation.definition.placeholder.begin.pattern
+        2: constant.numeric.pattern
+      push: string_placeholder
+      pop: true
+  
+  string_placeholder:
+    - meta_scope: constant.other.placeholder.pattern
+    - name: meta.illegal.unescaped-placeholder.pattern
+      match: '(\})(\}(?!\{))?'
+      captures:
+        1: punctuation.definition.placeholder.end.pattern
+        2: invalid.illegal.unescaped-placeholder.pattern
+      pop: true
+    - name: meta.string.interpolated.end.pattern
+      match: '(?=[}"])'
+      pop: true
+    - include: string_placeholder_format
+    - name: meta.illegal.unexpected-character-in-placeholder.pattern
+      match: '[^"}]+'
+      scope: invalid.illegal.unexpected-character-in-placeholder.pattern
+
+  string_placeholder_format:
+    - name: meta.illegal.unclosed-string-placeholder.pattern
+      match: ':(?="(?!"))'
+      scope: invalid.illegal.unclosed-string-placeholder.pattern
+      pop: true
+    - include: expression
+    - name: meta.string.interpolated.separator.pattern
+      match: ':'
+      scope: punctuation.separator.pattern
+      push:
+        - meta_scope: constant.other.format-spec.pattern
+        - include: escaped
+        - name: meta.string.interpolated.pattern
+          match: '([[:alnum:]]|[-./]|[ ])+'
+          scope: string.unquoted.pattern
+        - name: meta.string.interpolated.end.pattern
+          match: '(?=[}])'
+          pop: true
+        - name: meta.illegal.unclosed-string-placeholder.pattern
+          match: '([^}"\\]+(\\.)*)+(?="(?!"))'
+          scope: invalid.illegal.unclosed-string-placeholder.pattern
+          pop: true
+  
+  string_interpolation:
+    - include: string_placeholder_format
+    - name: meta.string.interpolated.end.pattern
+      match: '[}]'
+      scope: punctuation.section.interpolation.end.pattern
+      pop: true
+    - include: expression
+
+  escaped:
+    - name: meta.character.escaped.pattern
+      match: '{{escaped_char}}'
+      scope: constant.character.escaped.pattern
+    - name: meta.illegal.lone-escape.pattern
+      match: '\\'
+      scope: invalid.illegal.lone-escape.pattern
+    
+  error-scope_block:
+    - meta_content_scope: meta.group.pattern
+    - push: handle_expr
+    - push: always_expr
+    - name: meta.error-scope.block.end.pattern
+      match: '^[ ]{6}[ ]*(End[ ]Error[ ]Scope)'
+      captures:
+        1: keyword.control.error-scope-handle.handle.pattern
+        2: meta.group.pattern punctuation.section.group.begin.pattern
+      push: terminate_line
+      pop: true
+    - include: code_line
+    - match: (?=\S)
+      pop: true
+
+  handle_expr:
+    - name: meta.error-scope.handle.pattern
+      match: '(Handle)(?:[ ]({{named_type}}))?'
+      captures:
+        1: keyword.control.error-scope-handle.handle.pattern
+        2: variable.other.namespace.pattern
+      push: [error-scope-handle_block, terminate_line, handle_block]
+    - match: '(?=\S)'
+      pop: true
+
+  always_expr:
+    - meta_content_scope: meta.group.pattern
+    - match: '^[ ]{6}[ ]*Always'
+      scope: keyword.control.error-scope-handle.always.pattern
+      push: [always_block, terminate_line]
+    - match: '(?=\S)'
+      pop: true
+
+  error-scope-handle_block:
+    - meta_content_scope: meta.group.pattern
+    - match: '^[ ]{6}[ ]*(Handle|Always)'
+      captures: 
+        1: storage.type.pattern
+        2: meta.group.pattern punctuation.section.group.end.pattern
+      pop: true
+    - include: code_line
+    - match: (?=\S)
+      pop: true
+
+  handle_block:
+    - match: '\bWhen\b'
+      scope: keyword.control.error-scope-handle.when.pattern
+      push: [error-scope-handle_block, if_condition]
+      pop: true
+    - match: (?=\S)
+      pop: true
+
+  always_block:
+    - meta_scope: meta.block.error-scope-handle.pattern
+    - match: 'Always\b'
+      scope: keyword.control.error-scope-handle.always.pattern
+      push: [error-scope-handle_block, terminate_line]
+      pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  if_condition:
+    - match: '([ ])'
+      captures:
+        1: meta.group.pattern punctuation.section.group.begin.pattern
+      set:
+        - meta_content_scope: meta.group.pattern
+        - push: [terminate_line, expression]        
+      pop: true
+    - match: '(?=\S)'
+      pop: true 
+
+  if_block:
+    - meta_content_scope: meta.block.pattern
+    - name: meta.if.block.else.pattern
+      match: '(?=^[ ]{6}[ ]*)(?=End[ ]If|Else)'
+      captures:
+        1: meta.group.pattern punctuation.section.group.end.pattern
+      pop: true
+    - include: main 
+    - match: '(?=\S)'
+      pop: true
+
+  else_block:
+    - match: '^[ ]{6}[ ]*(Else[ ]If)\b'
+      captures:
+        1: keyword.control.conditional.elseif.pattern
+      push: [if_block, if_condition]
+      pop: true
+    - match: '^[ ]{6}[ ]*(Else)\n'
+      push: [if_block]
+      pop: true
+    - match: '(?=\S)'
+      pop: true 
+
+  when_condition:
+    - match: '?=^[ ]{6}[ ]*(When)[ ]'
+      scope: punctuation.section.group.begin.pattern
+      set:
+        - meta_scope: meta.group.pattern
+        - push: [terminate_line, expression]
+          pop: true
+    - match: '(?=\S)'
+      pop: true 
+
+  choice_close:
+    - match: '^[ ]{6}[ ]*End[ ]Choice'
+      scope: punctuation.section.block.end.pattern
+      push: terminate_line
+      pop: true
+
+  
+  switch_block:
+    - meta_scope: meta.block.pattern
+    - include: choice_close
+    - match: '^[ ]{6}[ ]*(Otherwise)'
+      scope: keyword.control.switch.case.pattern
+      push: terminate_line
+    - match: '(?=^[ ]{6}[ ]*When[ ])'
+      scope: keyword.control.switch.case.pattern
+      push: [terminate_line, when_condition]
+    - include: code_line
+    - match: '(?=\S)'
+      pop: true 
+
+  each_in_assignment:    
+    - match: '[ ]In[ ]'
+      scope: keyword.operator.assignment.variable.loop.pattern
+      push: expression
+      pop: true
+    - match: '(?=\S)'
+      pop: true
+
+  each_block:
+    - match: '^[ ]{6}[ ]*End[ ]Each'
+      scope: punctuation.section.block.end.pattern
+      pop: true
+    - push: code_line
+    - match: (?=\S)
+      pop: true
+
+  for_from:
+    - match: '[ ]From[ ]'
+      scope: keyword.operator.assignment.variable.loop.pattern
+      push: expression
+      pop: true
+    - match: '(?!Until)'
+      set:
+      - clear_scopes: 2
+      pop: true 
+
+  for_until:
+    - match: '[ ]Until[ ]'
+      scope: keyword.operator.assignment.variable.loop.pattern
+      push: expression
+      pop: true
+    - match: '(?=\S)'
+      pop: true 
+ 
+  for_step:
+    - match: '[ ]Step[ ]'
+      scope: keyword.operator.assignment.variable.loop.pattern
+      push: expression
+      pop: true
+    - match: '(?=\S)'
+      pop: true 
+ 
+  for_block:
+    - match: '^[ ]{6}[ ]*End[ ]For'
+      scope: punctuation.section.block.end.pattern
+      pop: true
+    - push: code_line
+    - match: (?=\S)
+      pop: true
+
+  loop_block:
+    - meta_scope: meta.block.pattern
+    - match: '^[ ]{6}[ ]*End[ ]Loop' 
+      scope: punctuation.section.block.end.pattern
+      pop: true 
+    - push: code_line
+    - match: '(?=\S)'
+      pop: true
+
+  while_condition:
+    - match: '[ ](Until)[ ]'
+      scope: keyword.control.loop.while.pattern
+      include: if_condition 
+    - match: '(?=\S)'
+      pop: true 
+
+  do_condition:
+    - match: '[ ](Until)[ ]'
+      scope: keyword.control.loop.while.pattern
+      include: if_condition 
+    - match: '(?=\S)'
+      pop: true 
+
+  documentation:
+    - meta_include_prototype: false 
+    - meta_content_scope: comment.block.documentation.pattern
+    - match: '(<)({{named_type}})'
+      captures:
+        1: punctuation.definition.tag.begin.pattern
+        2: entity.name.tag.begin.pattern
+      push:
+        - meta_include_prototype: false 
+        - match: '({{named_type}})[ ](=)'
+          captures:
+            1: entity.other.attribute-name.pattern
+            2: punctuation.separator.argument.value.pattern
+        - match: '/?>'
+          scope: punctuation.definition.tag.end.pattern
+          pop: true 
+        - match: '"[^"]*"'
+          scope: string.quoted.double.pattern
+        - match: '(</)({{named_type}})(>)'
+          captures:
+            1: puncutation.definition.tag.begin.pattern
+            2: entity.name.tag.end.pattern
+            3: punctuation.definition.tag.end.pattern
+        - match: '^\s*(///)'
+          captures:
+            1: punctuation.definition.comment.documentation.pattern
+        - match: '^\s*(?!///)'
+          pop: true
+        - include: comments_in
+        - match: '[\w\s]+|.'
+          scope: text.documentation.pattern
 
