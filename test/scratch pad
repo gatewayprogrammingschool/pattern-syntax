@@ -1,0 +1,23 @@
+
+Application Scope my_namespace.
+
+  Application my_application.
+
+    Constructor.
+    Parameters.
+      Parameter test Of Type String.
+    End Parameters.
+
+      // TODO: Code goes here.
+      Mutable a Of Type Number = 1.
+      Mutable b Of Type Number = 2.
+
+      If a < b.
+        b = b - 1.
+      End If.
+
+    End Constructor.
+
+  End Application.
+
+End Application Scope.

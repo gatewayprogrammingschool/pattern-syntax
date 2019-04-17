@@ -2,9 +2,7 @@
 ---
 # http://www.sublimetext.com/docs/3/syntax.html
 name: Pattern
-file_extensions:
-  - pattern
-first_line_match: "Pattern File"
+file_extensions: [ pattern ]
 
 scope: source.pattern
 
@@ -17,9 +15,10 @@ variables:
   bool_op_logical_and: '(?:&&|And)'
   bool_op_logical_or: '(?:\|\||Or)'
   bool_op_logical_not: '(?:!|Not)'
-  bool_op_xor: '(?:\^|Xor)'
-  bool_op: '(?:({{bool_op_equality}}|{{bool_op_logical_and}}|{{bool_op_logical_not}}|{{bool_op_logical_or}}|{{bool_op_xor}}))'
+  bool_op: '(?:({{bool_op_equality}}|{{bool_op_logical_and}}|{{bool_op_logical_not}}|{{bool_op_logical_or}}))'
 
+  bitwise_op_xor: '(?:\^|Xor)'
+  
   assignment_op_direct: '(?:=)'
   assignment_op_and: '(?:&)'
   assignment_op_or: '(?:\|)'
@@ -75,6 +74,13 @@ variables:
   line_terminator: '\.'
 
 contexts:
+  main:
+    - match: '^Needs'
+      scope: storage.type.namespace.pattern
+    - include: redefine_declaration
+    - include: needs_declaration
+    - include: app_scope_declaration
+
   prototype:
     - include: comments
     - name: meta.prototype.pattern
@@ -213,34 +219,22 @@ contexts:
       scope: punctuation.line_terminator.pattern
       pop: true
 
-  main:
-    - include: redefine_declaration
-    - include: needs_declaration
-    - include: app_scope_declaration
-
   needs_declaration:
     - name: meta.needs.declaration.pattern
-      match: '^(Needs)[ ](?={{named_type}})'
-      captures:
-        1: keyword.control.import.pattern
-        2: meta.path.pattern
-      push: [terminate_line, fqtype]
-      pop: true
+      match: '^Needs[ ]'
+      scope: keyword.control.import.pattern
+      push: fqtype
 
   redefine_declaration:
     - name: meta.redefine.declaration
-      match: '^(Redefine)[ ](?={{named_type}})'
-      captures:
-        1: keyword.control.import.pattern
-        2: meta.path.pattern
+      match: '^Redefine[ ]'
+      scope: keyword.control.import.pattern meta.path.pattern
       push: fqtype
-    - name: meta.redefine.as.declaration
-      match: '[ ](As)[ ](?={{name_normal}})'
-      captures:
-        1: keyword.control.import.pattern
-        2: variable.other.namespace.pattern
-      push: [terminate_line, normal]
-      pop: true
+      set:
+      - name: meta.redefine.as.declaration
+        match: '[ ]As[ ]'
+        scope: keyword.control.import.pattern
+        push: normal
       
   app_scope_declaration:
     - meta_scope: meta.application_scope.begin.pattern
@@ -259,9 +253,6 @@ contexts:
               set:
                 - meta_scope: meta.namespace.pattern meta.block.pattern
                   push: terminate_line
-                  pop: true
-    - match: (?=\S)
-      pop: true
 
   application_declaration:
     - name: meta.application_scope.name.pattern
